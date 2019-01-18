@@ -207,7 +207,7 @@ class Series:
 
 
 start = time.time()
-r = Series([24, 100, 260, 276 + 260])
+r = Series([2, 8, 24, 64, 160])
 r.findPolynomial()
 print(r.printPolynomial())
 r.plot()
