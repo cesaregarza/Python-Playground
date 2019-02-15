@@ -1,5 +1,7 @@
 from fractions import Fraction
-import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use('TkAgg')
+from matplotlib import pyplot as plt
 import time
 
 class Polynomial:
@@ -207,7 +209,7 @@ class Series:
 
 
 start = time.time()
-r = Series([2, 8, 24, 64, 160])
+r = Series([1, 4, 16, 256, 1024, 4096])
 r.findPolynomial()
 print(r.printPolynomial())
 r.plot()
