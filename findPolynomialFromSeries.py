@@ -3,6 +3,8 @@ import matplotlib as mpl
 mpl.use('TkAgg')
 from matplotlib import pyplot as plt
 import time
+import math
+import numpy as np
 
 class Polynomial:
     def __init__(self, array):
@@ -86,7 +88,7 @@ class Polynomial:
             
             ret += str(coefficient)
             if i < (l - 1) :
-                ret += " " + str(variable)
+                ret += " * " + str(variable)
             
             if i < (l - 2):
                 ret += "^" + str(l - i - 1)
@@ -99,7 +101,7 @@ class Polynomial:
         plt.subplot(111)
         t = []
         for i in range(resolution):
-            t.append(i)
+            t.append(i + 1)
 
         plt.plot(t, self.evalMult(t), 'k', label = self.printPolynomial())
         plt.legend()
@@ -158,7 +160,7 @@ class Series:
 
     def findPolynomial(self):
         polyArray = []
-        factorials = self.generateFactorials(10)
+        factorials = self.generateFactorials(50)
         testArr = self._series[:]
         l = 0
         degree = 999
@@ -166,7 +168,7 @@ class Series:
 
         while degree > 0:
             _i += 1
-            if _i == 20:
+            if _i == 99:
                 break
             
             temp = self.findDegree(testArr)
@@ -204,14 +206,66 @@ class Series:
     def printPolynomial(self, variable = "x"):
         return self._poly.printPolynomial(variable)
     
-    def plot(self, resolution = 25):
+    def plot(self, resolution = 50):
         return self._poly.plot(resolution)
+
+def genPrimes():
+    def isPrime(n):
+        if n % 2 == 0: return n == 2
+        d = 3
+        while d * d <= n:
+            if n % d == 0: return False
+            d += 2
+        return True
+    def init(): # change to Sieve of Eratosthenes
+        ps, qs, sieve = [], [], [True] * 50000
+        p, m = 3, 0
+        while p * p <= 100000:
+            if isPrime(p):
+                ps.insert(0, p)
+                qs.insert(0, p + (p-1) / 2)
+                m += 1
+            p += 2
+        for i in range(m):
+            for j in range(qs[i], 50000, ps[i]):
+                sieve[j] = False
+        return m, ps, qs, sieve
+    def advance(m, ps, qs, sieve, bottom):
+        for i in range(50000): sieve[i] = True
+        for i in range(m):
+            qs[i] = (qs[i] - 50000) % ps[i]
+        p = ps[0] + 2
+        while p * p <= bottom + 100000:
+            if isPrime(p):
+                ps.insert(0, p)
+                qs.insert(0, (p*p - bottom - 1)/2)
+                m += 1
+            p += 2
+        for i in range(m):
+            for j in range(qs[i], 50000, ps[i]):
+                sieve[j] = False
+        return m, ps, qs, sieve
+    m, ps, qs, sieve = init()
+    bottom, i = 0, 1
+    yield 2
+    while True:
+        if i == 50000:
+            bottom = bottom + 100000
+            m, ps, qs, sieve = advance(m, ps, qs, sieve, bottom)
+            i = 0
+        elif sieve[i]:
+            yield bottom + i + i + 1
+            i += 1
+        else: i += 1
+
+
 
 
 start = time.time()
-r = Series([1, 4, 16, 256, 1024, 4096])
+r = Series([0,1,2,2,3,3,4,4,4,4,5,5,6,6,6,6,7,7,8,8,8,8,9,9,9,9,9,9,9,10,10,11,11,11,11,11,11,12,12,12,12,13,13,14,14,14,14,15,15,15,15])
 r.findPolynomial()
 print(r.printPolynomial())
+# print(r._poly.evaluateSeries(50))
 r.plot()
 end = time.time()
 print(end - start)

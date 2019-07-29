@@ -7,10 +7,14 @@ class Heap:
         self._initHeapify()
     
     def pop(self):
+        #Swap first and last
         self._array[0], self._array[-1] = self._array[-1], self._array[0]
 
+        #pop to remove last value which is the highest value
         p = self._array.pop()
+        #re-heapify
         self._heapify()
+        #return highest value
         return p
     
     def _heapify(self, startIndex = 0):
@@ -46,7 +50,7 @@ class Heap:
             prop = self._property
         
         if secCompare is True:
-            if a.__getattribute__(prop) == b.__getattribute__(prop):
+            if a[prop] == b[prop]:
                 return self._reverseCompare(a, b, equals, self._secProp)
             else:
                 return self._compare(a, b, equals)
@@ -65,14 +69,14 @@ class Heap:
         else:
             if equals is False:
                 if self._order is "max":
-                    return a.__getattribute__(prop) > b.__getattribute__(prop)
+                    return a[prop] > b[prop]
                 else:
-                    return a.__getattribute__(prop) < b.__getattribute__(prop)
+                    return a[prop] < b[prop]
             else:
                 if self._order is "max":
-                    return a.__getattribute__(prop) >= b.__getattribute__(prop)
+                    return a[prop] >= b[prop]
                 else:
-                    return a.__getattribute__(prop) <= b.__getattribute__(prop)
+                    return a[prop] <= b[prop]
     
     def _reverseCompare(self, a, b, equals, prop = -1):
         if prop == -1:
@@ -92,14 +96,14 @@ class Heap:
         else:
             if equals is False:
                 if self._order is "max":
-                    return a.__getattribute__(prop) < b.__getattribute__(prop)
+                    return a[prop] < b[prop]
                 else:
-                    return a.__getattribute__(prop) > b.__getattribute__(prop)
+                    return a[prop] > b[prop]
             else:
                 if self._order is "max":
-                    return a.__getattribute__(prop) <= b.__getattribute__(prop)
+                    return a[prop] <= b[prop]
                 else:
-                    return a.__getattribute__(prop) >= b.__getattribute__(prop)
+                    return a[prop] >= b[prop]
     
     def _bubbleUp(self, startIndex):
         if startIndex is 0:
