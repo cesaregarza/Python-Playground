@@ -3,6 +3,7 @@ import math
 import functools
 import random
 from copy import deepcopy
+import csv
 
 class slidePuzzle:
     def __init__(self, inp, skipVerification = False):
@@ -118,7 +119,7 @@ class slidePuzzle:
                 n = (self._size * (i % self._size)) + (i // self._size)
                 j = self._idealHor[inp[n] - 1]
                 
-                if j == 0:
+                if j == 16:
                     continue
                 
                 r = functools.reduce(lambda a, b: a+1 if b>j else a, appeared, 0)
@@ -444,11 +445,11 @@ class slidePuzzle:
         self._h, self._MD, self._invVert, self._invHor = self.findH()
         self._g = 0
         self._f = self._g + self._h
-        print ('solving')
+        print ('solving. Initial H value: ', self._h)
 
         heap = Heap([],'max','g','f')
 
-        maxDepth = 15
+        maxDepth = 3
         nodes = 0
 
         if self._size % 2 == 1:
@@ -457,17 +458,17 @@ class slidePuzzle:
             i = self._blankIndex % 2 + (self._blankIndex // self._size) % 2
         
         while i < maxDepth:
-            print('depth: ', i)
+            print('depth: ', i, end='\r')
 
             res = self._exploreStates(i, heap)
             nodes += res[1]
 
             if res[0] is False:
-                # maxDepth +=2
+                maxDepth +=2
                 i += 2
                 continue
             else:
-                print('nodes explored: ', nodes)
+                print('nodes explored: ', place_value(nodes), 'max depth: ', i)
                 return res[0]
     
     def _exploreStates(self, maxDepth, heap):
@@ -492,7 +493,7 @@ class slidePuzzle:
         while heap.size > 0:
             currentState = heap.pop()
             if currentState['moves'] == ['R', 'D']:
-                print(currentState)
+                # print(currentState)
                 found = True
 
             nodes += 1
@@ -578,12 +579,12 @@ class slidePuzzle:
             if ('D' in currentState['validMoves']) and (movelength == 0 or currentState['moves'][movelength - 1] != 'U'):
                 potentialBlank, potentialMove = self.slideD(currentState['state'].copy(),currentState['blankIndex'], currentState['validMoves'].copy())
 
-                print('potential move: ', potentialMove)
-                print ('potential Blank: ', potentialBlank)
-                print('last blank: ', currentState['blankIndex'])
-                print('MD: ', currentState['MD'])
-                print('invVert: ', currentState['invVert'])
-                print('invHor: ', currentState['invHor'])
+                # print('potential move: ', potentialMove)
+                # print ('potential Blank: ', potentialBlank)
+                # print('last blank: ', currentState['blankIndex'])
+                # print('MD: ', currentState['MD'])
+                # print('invVert: ', currentState['invVert'])
+                # print('invHor: ', currentState['invHor'])
 
                 hvals = self.findH(potentialMove, potentialBlank, currentState['blankIndex'], currentState['MD'], currentState['invVert'], currentState['invHor'])
 
@@ -603,34 +604,106 @@ class slidePuzzle:
                 potentialState['moves'].append('D')
                 potentialState['f'] = potentialState['g'] + potentialState['h']
 
-                print(potentialState)
+                # print(potentialState)
 
                 heap.insert(potentialState)
             
         return [False, nodes]
 
+    def move_list(self, li):
+        boardstate_list = []
+        for i in li:
+            oldstate = deepcopy(self._puzzle)
+            if i is 'U':
+                self.slideU()
+            elif i is 'D':
+                self.slideD()
+            elif i is 'R':
+                self.slideR()
+            elif i is 'L':
+                self.slideL()
+
+            boardstate_list.append([*oldstate,i])
+
+        return boardstate_list    
 
 
-
-
+def generate_csv(inp = 4, movelist = []):
+    q = slidePuzzle(inp)
+    if inp is 4:
+        q.shuffle(1000)
+        p = q.solve()
+        movelist = p['moves']
     
-validBoard = [6, 13, 7, 10, 8, 9, 11, 0, 15, 2, 12, 5, 14, 3, 1, 4];
-invalidBoard = [3, 9, 1, 15, 14, 11, 4, 6, 13, 0, 10, 12, 2, 7, 8, 5];
-FourteenMove = [ 1, 2, 3, 4, 5, 11, 10, 7, 9, 6, 12, 15, 13, 14, 8, 0 ];
-Eight26Move = [ 2, 4, 0, 3, 6, 7, 5, 8, 1 ];
-LinearCollision = [1, 2, 3, 0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 4];
-SixtySixMove = [14, 15, 8, 12, 10, 11, 9, 13, 2, 6, 5, 1, 3, 7, 4, 0];
-FiftyMove = [ 4, 3, 2, 11, 5, 0, 7, 6, 10, 13, 9, 8, 15, 1, 12, 14 ];
-FiftyNineMove = [ 4, 10, 12, 0, 15, 14, 1, 2, 9, 11, 3, 6, 8, 7, 5, 13 ];
+    biglist = q.move_list(movelist)
 
-oneMove = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 13, 14, 15, 12]
+    try:
+        f = open('puzzlelist.csv')
+        f.close()
+    except:
+        with open('puzzlelist.csv','a') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerow([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 'move'])
+    
+    with open('puzzlelist.csv', 'a') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerows(biglist)
 
-twelveMove = [1, 2, 3, 4, 5, 11, 10, 7, 9, 6, 0, 15, 13, 14, 12, 8]
+def place_value(n):
+    return ("{:,}".format(n))
 
-q = slidePuzzle(FourteenMove)
-print(q._idealHor)
-print(q.findH())
-print(q._inversionCount())
-print(q._inversionCount(horizontal= True))
+def convert_solution(li, sol):
+    q = slidePuzzle(li)
+    sol = sol.split(' | ')
+    sol[0] = sol[0][2:]
+    del sol[-1]
+    sol = list(map(lambda x: int(x), sol))
+    
+    def map_adj(lis, blank_index):
+        blank_col = blank_index % 4
+        blank_row = blank_index // 4
+        avail_map = {}
+        if blank_row is not 0:
+            n = str(lis[blank_index - 4])
+            avail_map[n] = 'D'
+        if blank_row is not 3:
+            n = str(lis[blank_index + 4])
+            avail_map[n] = 'U'
+        if blank_col is not 0:
+            n = str(lis[blank_index - 1])
+            avail_map[n] = 'R'
+        if blank_col is not 3:
+            n = str(lis[blank_index + 1])
+            avail_map[n] = 'L'
+        
+        return avail_map
+    
+    moves = []
+    for i in sol:
+        r = map_adj(q.puzzle, q.blankIndex)
+        k = r[str(i)]
+        moves.append(k)
+        
+        if k is 'U':
+            q.slideU()
+        elif k is 'D':
+            q.slideD()
+        elif k is 'R':
+            q.slideR()
+        elif k is 'L':
+            q.slideL()
+    
+    return moves
 
+        
+
+# q = slidePuzzle([0, 1, 8, 2, 7, 5, 11, 15, 4, 9, 6, 13, 12, 14, 10, 3])
+# print(q._idealHor)
+# print(q.findH())
+# print(q._inversionCount())
+# print(q._inversionCount(horizontal= True))
 # print(q.solve())
+for i in range(300):
+    print("""Puzzle number """ + str(i + 1))
+    generate_csv()
+
