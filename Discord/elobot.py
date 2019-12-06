@@ -36,8 +36,8 @@ async def on_message(message):
     if message.content.startswith('!rankbot'):
         msg= f'Hey {message.author.mention}'
         channel = message.channel
-        p = rank_functions.parse_command(message)
-        print(p)
+        msg = rank_functions.parse_command(message)
+        
         await channel.send(msg)
 
 
