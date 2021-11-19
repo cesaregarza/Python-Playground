@@ -206,17 +206,13 @@ class BezierClass:
         return numerator / denominator
     
     def evaluate(self, t:float) -> float:
-        """Evaluates the bezier curve at the given t value.
-        
+        """Evaluate the point on the Bezier curve at t
         Args:
-            t (float): The t value to evaluate the curve at
-        
+            t (float): t value to evaluate
         Returns:
-            float: The value of the curve at the given t value
+            float: The value of the point on the curve at t
         """
-        #Generate a vector of the t value
-        t_vector = np.asarray([t ** i for i in range(self.degree + 1)])
-        return t_vector @ self.coefficient_matrix @ self.control_points
+        return self.sample_points([t])[0]
 
 class BinomialClass():
     def __init__(self):
