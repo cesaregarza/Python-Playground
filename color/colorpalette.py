@@ -23,7 +23,7 @@ class HueDirection(Enum):
 class ColorPalette:
     def __init__(self, color_reference_list: list[Union[str, tuple[str, float]]],
                        color_format: ColorFormats = ColorFormats.RGB,
-                       weights: Optional[list[float]] = None,
+                       weights: Optional[Union[list[float], np.ndarray]] = None,
                        interpolator: Type[InterpolatorMixin] = nDegreeBezierInterpolator) -> None:
         
 
@@ -37,7 +37,7 @@ class ColorPalette:
         else:
             self.linear = np.allclose(weights, linear_weights)
         
-        self.weights = weights
+        self.weights = np.array(weights).reshape(-1, 1)
         self.color_format = color_format
 
         self.interpolator = interpolator()
@@ -220,9 +220,17 @@ class ColorPalette:
                 source=red_image,
                 x=255,
                 y=0,
-                
+
             )
         )
 
         #Return the figure
         return fig
+    
+    def update_interpolator(self, interpolator:InterpolatorMixin) -> None:
+        """Update the interpolator used to generate colors
+
+        Args:
+            interpolator (InterpolatorMixin): interpolator to use
+        """
+        self.interpolator = interpolator()

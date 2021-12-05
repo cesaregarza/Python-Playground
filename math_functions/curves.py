@@ -190,20 +190,18 @@ class BezierClass:
         Returns:
             float: The curvature of the curve
         """
+        #Evaluate the vector of the curve at the t value
         derivative_curve        = self.derivative()
         second_derivative_curve = derivative_curve.derivative()
+        derivative_point        = derivative_curve.evaluate(t)
+        second_derivative_point = second_derivative_curve.evaluate(t)
 
-        #Calculate the numerator
-        gamma1      = np.linalg.norm(derivative_curve.evaluate(t)) ** 2
-        gamma2      = np.linalg.norm(second_derivative_curve.evaluate(t)) ** 2
-        gammadot    = np.dot(derivative_curve.evaluate(t), second_derivative_curve.evaluate(t)) ** 2
-        numerator   = np.sqrt(gamma1 * gamma2 - gammadot ** 2)
+        #Calculate the norm of the first derivative point as the denominator
+        norm_derivative_point = np.linalg.norm(derivative_point)
 
-        #Find the norm of the derivative coefficient matrix and cube it
-        denominator = np.linalg.norm(derivative_curve.coefficient_matrix) ** 3
+        #Calculate the wedge product of the vectors for the first and second derivatives using einsum
+        wedge_product = np.einsum('i,j', derivative_point, second_derivative_point)
 
-        #Return the curvature
-        return numerator / denominator
     
     def evaluate(self, t:float) -> float:
         """Evaluate the point on the Bezier curve at t

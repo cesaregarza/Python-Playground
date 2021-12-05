@@ -224,6 +224,8 @@ class LeastSquaresLinearInterpolator(InterpolatorMixin):
         Raises:
             InterpolatorError: If the points provided are not within the range [0,1] and not normalized.
         """
+        #Reshape the points to be a column vector
+        points = np.array(points).reshape(-1,1)
         return self.model.predict(points)
     
     @fitted_method
@@ -234,7 +236,7 @@ class LeastSquaresLinearInterpolator(InterpolatorMixin):
         Returns:
             np.ndarray: The sampled points.
         """
-        predict_points = np.linspace(np.min(self.weights), np.max(self.weights), num_samples)
+        predict_points = np.linspace(np.min(self.weights), np.max(self.weights), num_samples).reshape(-1,1)
         return self.model.predict(predict_points)
     
     @fitted_method
