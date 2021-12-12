@@ -48,7 +48,7 @@ class DirectionalStatistics:
 
         if self.format    == Direction_Format.cartesian:
             self.cartesian  = self.raw_data
-            self.radians    = np.arctan2(self.cartesian[:, 1], self.cartesian[:, 0])
+            self.radians    = np.arctan2(self.y, self.x)
 
         elif self.format    == Direction_Format.polar:
             self.radians    = self.raw_data / self.base_to_radians
@@ -58,6 +58,17 @@ class DirectionalStatistics:
     
     @staticmethod
     def convert(data: npt.ArrayLike, input:str = "polar", output:str = "cartesian", base:Union[float, int] = 2 * np.pi) -> np.ndarray:
+        """Converts the data from one format to another.
+
+        Args:
+            data (npt.ArrayLike): Numpy or Array-like object containing data.
+            input (str, optional): Input format of the data. Defaults to polar.
+            output (str, optional): Output format of the data. Defaults to cartesian.
+            base (Union[float, int], optional): Angular base for the directional statistics. Defaults to 2 * pi.
+        
+        Returns:
+            np.ndarray: Data in the specified format.
+        """
         if input == output:
             return data
         elif output == "cartesian":
@@ -74,7 +85,7 @@ class DirectionalStatistics:
             base (Union[float, int], optional): Base for the directional statistics. Defaults to 2 * pi.
         
         Returns:
-            np.ndarray: Array of cartesian coordinates.
+            np.ndarray: Array of cartesian coordinates in the form (x, y).
         """
         base_to_radians     = base / (2 * np.pi)
         converted_radians   = radians / base_to_radians
@@ -90,7 +101,7 @@ class DirectionalStatistics:
             base (Union[float, int], optional): Base for the directional statistics. Defaults to 2 * pi.
         
         Returns:
-            np.ndarray: Array of polar coordinates.
+            np.ndarray: Array of polar coordinates in the form (r, theta).
         """
         base_to_radians = base / (2 * np.pi)
         rad             = np.arctan2(cartesian[:, 1], cartesian[:, 0])
@@ -98,7 +109,7 @@ class DirectionalStatistics:
 
         #Calculate the vector length
         lengths         = np.linalg.norm(cartesian, axis=1)
-        return np.array([angles, lengths])
+        return np.array([lengths, angles])
     
     @staticmethod
     def project_to_unit_circle(x:npt.ArrayLike, y:npt.ArrayLike) -> np.ndarray:
@@ -138,7 +149,6 @@ class DirectionalStatistics:
         
         return naive_distance
 
-
     def mean(self, output:str = "intrinsic") -> np.ndarray:
         """Calculates the mean of the data, by taking the mean of the respective cartesian coordinates
 
@@ -172,7 +182,7 @@ class DirectionalStatistics:
         
         #Convert the data to cartesian coordinates
         data = DirectionalStatistics.convert(np.array(data), input, "cartesian", base)
-        x_mean, y_mean = DirectionalStatistics.__mean(data)
+        x_mean, y_mean = DirectionalStatistics.__component_mean(data)
 
         #Convert the calculated extrinsic mean to the desired output format using the convert method
         kwargs = {
@@ -184,11 +194,11 @@ class DirectionalStatistics:
         return DirectionalStatistics.convert(**kwargs).flatten()
     
     @staticmethod
-    def __mean(data: npt.ArrayLike) -> tuple[float, float]:
-        """Calculates the mean of the data, by taking the mean of the respective cartesian coordinates
+    def __component_mean(data: npt.ArrayLike) -> tuple[float, float]:
+        """Calculates the mean of the data, by taking the mean of the respective cartesian components of the data.
 
         Args:
-            data (npt.ArrayLike): Array of data, must be 2D.
+            data (npt.ArrayLike): Array of data, must be 2D and in cartesian coordinates.
 
         Returns:
             tuple[float, float]: (x_mean, y_mean)
@@ -209,7 +219,7 @@ class DirectionalStatistics:
             float: Intrinsic mean of the data, in radians.
         """
 
-        x_mean, y_mean = DirectionalStatistics.__mean(data)
+        x_mean, y_mean = DirectionalStatistics.__component_mean(data)
         return np.arctan2(y_mean, x_mean)
     
     @staticmethod
@@ -222,5 +232,86 @@ class DirectionalStatistics:
         Returns:
             float: Circular variance of the data.
         """
-        x_mean, y_mean = DirectionalStatistics.__mean(data)
+        x_mean, y_mean = DirectionalStatistics.__component_mean(data)
         return 1.0 - np.mean(np.sqrt(x_mean**2 + y_mean**2))
+    
+    @property
+    def x(self) -> np.ndarray:
+        """Array of x-coordinates of the data.
+
+        Returns:
+            np.ndarray: Array of x-coordinates of the data.
+        """
+        return self.cartesian[:, 0]
+    
+    @property
+    def y(self) -> np.ndarray:
+        """Array of y-coordinates of the data.
+
+        Returns:
+            np.ndarray: Array of y-coordinates of the data.
+        """
+        return self.cartesian[:, 1]
+    
+    @property
+    def r(self) -> np.ndarray:
+        """Array of radial coordinates of the data.
+
+        Returns:
+            np.ndarray: Array of radial coordinates of the data.
+        """
+        return np.sqrt(self.x**2 + self.y**2)
+    
+    @property
+    def theta(self) -> np.ndarray:
+        """Array of angular coordinates of the data, in the angular base.
+
+        Returns:
+            np.ndarray: Array of angular coordinates of the data.
+        """
+        return self.radians * self.base_to_radians
+    
+    @property
+    def radians(self) -> np.ndarray:
+        """Array of angular coordinates of the data, in radians.
+
+        Returns:
+            np.ndarray: Array of angular coordinates of the data.
+        """
+        return self.arctan2(self.y, self.x)
+    
+    @property
+    def polar(self) -> np.ndarray:
+        """Array of polar coordinates of the data, in the angular base.
+
+        Returns:
+            np.ndarray: Array of polar coordinates of the data.
+        """
+        return np.array([self.r, self.theta]).T
+    
+    @property
+    def polar_radians(self) -> np.ndarray:
+        """Array of polar coordinates of the data, in radians.
+
+        Returns:
+            np.ndarray: Array of polar coordinates of the data.
+        """
+        return np.array([self.r, self.radians]).T
+    
+    @property
+    def var(self) -> np.ndarray:
+        """Array of variance of the data.
+
+        Returns:
+            np.ndarray: Array of variance of the data.
+        """
+        return self.circvar(self.cartesian)
+    
+    def change_base(self, base:float) -> None:
+        """Changes the base of the data.
+
+        Args:
+            base (float): New base for the data.
+        """
+        self.base               = base
+        self.base_to_radians    = base / (2 * np.pi)
