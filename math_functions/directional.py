@@ -272,15 +272,6 @@ class DirectionalStatistics:
         return self.radians * self.base_to_radians
     
     @property
-    def radians(self) -> np.ndarray:
-        """Array of angular coordinates of the data, in radians.
-
-        Returns:
-            np.ndarray: Array of angular coordinates of the data.
-        """
-        return self.arctan2(self.y, self.x)
-    
-    @property
     def polar(self) -> np.ndarray:
         """Array of polar coordinates of the data, in the angular base.
 
