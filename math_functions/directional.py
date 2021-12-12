@@ -1,7 +1,6 @@
 from typing import Union
 import numpy as np
 import numpy.typing as npt
-from scipy.optimize import minimize
 from enum import Enum, auto
 
 class Direction_Format(Enum):
@@ -12,13 +11,31 @@ class DirectionalStatistics:
 
     def __init__(self, data:npt.ArrayLike, 
                        format:Direction_Format = Direction_Format.cartesian,
+                       center:Union[tuple,float,None] = None,
                        base:Union[float, int] = 2 * np.pi) -> None:
         """Object that handles directional statistics for a given array of data. Must be 2D.
 
         Args:
             data (npt.ArrayLike): Numpy or Array-like object containing data.
-            base (Union[float, int], optional): Base for the directional statistics. Defaults to 2 * pi.
+            format (Direction_Format, optional): Format of the data. Defaults to cartesian.
+            center (Optional[tuple], optional): Center of the data. Defaults to None.
+            base (Union[float, int], optional): Angular base for the directional statistics. Defaults to 2 * pi.
         """
+        #Check that the data is 2D
+        if data.ndim != 2:
+            raise NotImplementedError("Directional statistics only supports 2D data at this time.")
+
+        #Set the center of the data if it is not given according to the format
+        if center is None:
+            if format == Direction_Format.cartesian:
+                center = (0, 0)
+            elif format == Direction_Format.polar:
+                center = 0
+        
+        #Translate the data according to the center provided if the format is cartesian
+        if format == Direction_Format.cartesian:
+            data = data - center
+        
         self.raw_data           = np.array(data)
         self.format             = format
         self.base               = base
@@ -77,7 +94,11 @@ class DirectionalStatistics:
         """
         base_to_radians = base / (2 * np.pi)
         rad             = np.arctan2(cartesian[:, 1], cartesian[:, 0])
-        return rad * base_to_radians
+        angles          = (rad * base_to_radians) % base
+
+        #Calculate the vector length
+        lengths         = np.linalg.norm(cartesian, axis=1)
+        return np.array([angles, lengths])
     
     @staticmethod
     def project_to_unit_circle(x:npt.ArrayLike, y:npt.ArrayLike) -> np.ndarray:
@@ -99,14 +120,17 @@ class DirectionalStatistics:
 
         Args:
             theta1 (npt.ArrayLike): Array of first angles.
-            theta2 (float): Array of second angles.
+            theta2 (npt.ArrayLike): Array of second angles.
             base (float, optional): Base for the directional statistics. Defaults to 2 * pi.
         
         Returns:
             np.ndarray: Array of distances between the angles.
         """
-        naive_distance = np.abs(theta1 - theta2)
-        where = np.where(naive_distance > base / 2)
+        theta1          = np.array(theta1)
+        theta2          = np.array(theta2)
+        naive_distance  = np.abs(theta1 - theta2).reshape((-1, 1))
+        where           = np.where(naive_distance > base / 2)
+
         if len(where[0]) > 0:
             where_row, where_col = where
             for row, col in zip(where_row, where_col):
@@ -115,54 +139,88 @@ class DirectionalStatistics:
         return naive_distance
 
 
-    def extrinsic_mean(self, output:str = "cartesian") -> np.ndarray:
-        """Calculates the extrinsic mean of the data, by taking the mean of the respective cartesian coordinates
+    def mean(self, output:str = "intrinsic") -> np.ndarray:
+        """Calculates the mean of the data, by taking the mean of the respective cartesian coordinates
 
         Args:
-            output(str): Output format of the extrinsic mean. Valid options are cartesian, radians, and polar.
+            output(str): Output format of the extrinsic mean. Valid options are cartesian, radians, polar, extrinsic, and intrinsic.
         
         Returns:
-            np.ndarray: Extrinsic mean of the data, in cartesian coordinates.
+            np.ndarray: Mean of the data in the specified format.
         """
-        # Calculate the mean of the cartesian coordinates, this is the extrinsic mean
-        x, y            = self.cartesian[:, 0], self.cartesian[:, 1]
-        x, y            = DirectionalStatistics.project_to_unit_circle(x, y)
-        x_mean, y_mean  = np.mean(x), np.mean(y)
+        return DirectionalStatistics.circular_mean(self.cartesian, base=self.base, output=output)
+    
+    @staticmethod
+    def circular_mean(data: npt.ArrayLike, base:float = 2 * np.pi, input:str = "cartesian", output:str = "intrinsic") -> np.ndarray:
+        """Calculates the mean of the data, by taking the mean of the respective cartesian components of the data.
 
-        # Convert the calculated extrinsic mean to the desired output format using the convert method
-        base = 2 * np.pi if output == "radians" else self.base
+        Args:
+            data (npt.ArrayLike): Array of data, must be 2D.
+            base (float, optional): Base for the directional statistics. Defaults to 2 * pi.
+            input (str, optional): Input format of the data. Valid options are cartesian, radians, or polar. Defaults to "cartesian".
+            output (str, optional): Output format of the data. Valid options are cartesian, radians, polar, extrinsic, or intrinsic. Defaults to "intrinsic".
+
+        Returns:
+            np.ndarray: [description]
+        """
+        convert_dict = {
+            "extrinsic": "cartesian",
+            "intrinsic": "polar"
+        }
+        if output in convert_dict:
+            output = convert_dict[output]
+        
+        #Convert the data to cartesian coordinates
+        data = DirectionalStatistics.convert(np.array(data), input, "cartesian", base)
+        x_mean, y_mean = DirectionalStatistics.__mean(data)
+
+        #Convert the calculated extrinsic mean to the desired output format using the convert method
         kwargs = {
             "data": np.array([x_mean, y_mean]).reshape((1, 2)),
             "input": "cartesian",
             "output": output,
             "base": base
         }
-        return DirectionalStatistics.convert(**kwargs)
+        return DirectionalStatistics.convert(**kwargs).flatten()
     
-    def instrinsic_mean(self, output:str = "polar") -> np.ndarray:
-        """Calculates the intrinsic mean of the data
-        
+    @staticmethod
+    def __mean(data: npt.ArrayLike) -> tuple[float, float]:
+        """Calculates the mean of the data, by taking the mean of the respective cartesian coordinates
+
         Args:
-            output(str): Desired output format
-        
+            data (npt.ArrayLike): Array of data, must be 2D.
+
         Returns:
-
+            tuple[float, float]: (x_mean, y_mean)
         """
-        #Search for the minimum of the sum of the squared differences using the scipy.optimize.minimize method
-        def sum_of_squared_differences(theta:np.ndarray) -> float:
-            dist_array  = DirectionalStatistics.distance_between_angles(theta, self.radians, self.base)
-            return np.sum(dist_array**2)
-        
-        #Generate the initial guess for the minimization. We use the extrinsic mean of the data and project it to the unit circle
-        initial_theta = self.extrinsic_mean(output = "polar")[0]
-        theta_opt = minimize(sum_of_squared_differences, initial_theta, bounds=[(0, self.base)]).x
+        data = np.array(data)
+        x, y = data[:, 0], data[:, 1]
+        x, y = DirectionalStatistics.project_to_unit_circle(x, y)
+        return np.mean(x), np.mean(y)
+    
+    @staticmethod
+    def circmean(data: npt.ArrayLike) -> float:
+        """Calculates the circular mean of the data.
 
-        #Convert the optimal theta to the desired output format
-        base = 2 * np.pi if output == "radians" else self.base
-        kwargs = {
-            "data": theta_opt,
-            "input": "polar",
-            "output": output,
-            "base": base
-        }
-        return DirectionalStatistics.convert(**kwargs)
+        Args:
+            data (npt.ArrayLike): Array of data, must be 2D.
+
+        Returns:
+            float: Intrinsic mean of the data, in radians.
+        """
+
+        x_mean, y_mean = DirectionalStatistics.__mean(data)
+        return np.arctan2(y_mean, x_mean)
+    
+    @staticmethod
+    def circvar(data: npt.ArrayLike) -> float:
+        """Calculates the circular variance of the data.
+
+        Args:
+            data (npt.ArrayLike): Array of data, must be 2D.
+
+        Returns:
+            float: Circular variance of the data.
+        """
+        x_mean, y_mean = DirectionalStatistics.__mean(data)
+        return 1.0 - np.mean(np.sqrt(x_mean**2 + y_mean**2))
