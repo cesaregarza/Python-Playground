@@ -13,6 +13,7 @@ class GameInstance:
             raise ValueError(f"The number of players must be between 2 and {max_players}")
 
         self.players        = {i:Player() for i in range(players)}
+        self.num_players    = players
         self.current_player = 0
         self.discard_pile   = []
         self.play_pile      = []
@@ -90,8 +91,15 @@ class GameInstance:
         if self.top_card is None:
             return True
         
+        #2 and 10 are always playable
+        if (card.rank == 2) or (card.rank == 10):
+            return True
+        
+        #Ace is considered to have the highest rank
+        temp_rank = card.rank if card.rank > 1 else 14
+        
         #Check if the card is playable
         if self.normal_order:
-            return self.top_card.rank <= card.rank
+            return self.top_card.rank <= temp_rank
         else:
-            return self.top_card.rank >= card.rank
+            return self.top_card.rank >= temp_rank

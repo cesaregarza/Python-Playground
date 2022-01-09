@@ -314,8 +314,7 @@ class DirectionalStatistics:
         where           = np.where(naive_distance > base / 2)
 
         if len(where[0]) > 0:
-            where_row, where_col = where
-            for row, col in zip(where_row, where_col):
+            for row, col in where:
                 naive_distance[row, col] = base - naive_distance[row, col]
         
         return naive_distance

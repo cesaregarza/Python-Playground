@@ -3,7 +3,6 @@ from enum import Enum, auto
 class ValueToCard:
 
     conversion_table = {
-        0: 'King',
         1: 'Ace',
         2: '2',
         3: '3',
@@ -16,6 +15,7 @@ class ValueToCard:
         10: '10',
         11: 'Jack',
         12: 'Queen',
+        13: 'King',
     }
 
     inverse_conversion_table    = {v:k for k,v in conversion_table.items()}
@@ -23,7 +23,7 @@ class ValueToCard:
     
     @staticmethod
     def get_card_name(value:int) -> str:
-        new_value = value % (ValueToCard.max_value + 1)
+        new_value = value % ValueToCard.max_value
         return ValueToCard.conversion_table[new_value]
     
     @staticmethod

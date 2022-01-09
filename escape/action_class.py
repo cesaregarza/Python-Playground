@@ -25,8 +25,11 @@ class Action(ABC):
             return ActionQueue([self, other])
 
 class ActionQueue:
-    def __init__(self, actions:list[Action]) -> None:
-        self.actions = actions
+    def __init__(self, actions:Union[list[Action], Action]) -> None:
+        if isinstance(actions, list):
+            self.actions = actions
+        else:
+            self.actions = [actions]
     
     def __add__(self, other:Union[list[Action], Action, 'ActionQueue']) -> 'ActionQueue':
         if isinstance(other, list):

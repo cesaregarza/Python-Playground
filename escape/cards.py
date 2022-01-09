@@ -1,6 +1,7 @@
 from typing import Any
 from .constants import ValueToCard, Suit
 from .action_class import Action, ActionQueue
+from .actions import *
 
 class Card:
     def __init__(self, value:int, suit:Suit):
@@ -47,12 +48,11 @@ class Card:
     
     @property
     def rank(self) -> int:
-        #Return the rank of the card, turning kings from 0s to 13s
-        return self.value if self.value > 0 else 13
+        return self.value
 
 class Ace(Card):
     def __init__(self, suit:Suit):
         super().__init__(1, suit)
     
     def action(self) -> ActionQueue:
-        pass
+        return ActionQueue(AceAction())
