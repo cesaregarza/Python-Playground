@@ -6,23 +6,49 @@ import requests, re, os
 
 from concurrent.futures import ProcessPoolExecutor
 
+from .cypher import Cypher
+
 class Decrypter:
     """Simple MCMC decryption algorithm using random walk"""
-    def __init__(self, text_url: str, 
-                       allowable_chars: str = r"[a-zA-Z0-9\s]", 
+    def __init__(self, cypher_class: Cypher,
+                       reference_text_url: str, 
+                       allowable_chars: str = r"[a-z0-9\s]", 
                        allow_uppercase:bool = False,
                        max_workers: Optional[int] = None,
                        **kwargs) -> None:
 
-        self.reference_text_url = text_url
-        self.allowable_chars    = allowable_chars
-        self.allow_uppercase    = allow_uppercase
-        self.max_workers        = max_workers if max_workers is not None else os.cpu_count()
-        self.kwargs             = kwargs
+        self.cypher_class           = cypher_class
+        self.reference_text_url     = reference_text_url
+        allow_tuple                 = self.generate_allowable_chars(allowable_chars)
+        self.allowable_chars        = allow_tuple[0]
+        self.allowable_char_pattern = allow_tuple[1]
+        self.allow_uppercase        = allow_uppercase
+        self.max_workers            = max_workers if max_workers is not None else os.cpu_count()
+        self.kwargs                 = kwargs
         
-        self.reference_text     = self.get_text()
-        self.reference_text     = self.clean_text(self.reference_text)
+        self.reference_text         = self.get_text()
+        self.reference_text         = self.clean_text(self.reference_text)
     
+    def generate_allowable_chars(self, pattern:str) -> tuple[list[str], str]:
+        """Generates a list of allowable characters based on the given pattern
+
+        Args:
+            pattern (str): pattern to generate allowable characters from
+
+        Returns:
+            list: allowable characters
+        """
+        textset         = "".join([chr(i) for i in range(32, 127)])
+        #If the pattern provided does not contain square brackets, assume that this is a list of characters. Generate a regex pattern from the list
+        #Otherwise, assume that the pattern is a regex pattern.
+        if "[" not in pattern:
+            #Sort the characters in the pattern to ensure that the order is consistent and replace key characters with their escaped versions
+            pattern = "".join([re.escape(char) for char in sorted(set(pattern))])
+            pattern = "[" + pattern + "]"
+        
+        #Generate a list of allowable characters based on the given or generated pattern
+        return re.findall(pattern, textset), pattern
+
     def get_text(self) -> str:
         """Retrieves text from given url
 
@@ -69,7 +95,7 @@ class Decrypter:
             str: inverted regex pattern
         """
         if pattern is None:
-            pattern = self.allowable_chars
+            pattern = self.allowable_char_pattern
         
         pattern = re.sub(r"\[", r"[^", pattern)
         return pattern
@@ -153,9 +179,9 @@ class Decrypter:
         self.transition_matrix = self.transition_matrix.div(self.transition_matrix.sum(axis=1), axis=0).fillna(0)
 
         #Take the log of the transition matrix with a hard bottom of the lowest non-zero value in the matrix minus 20
-        transition_matrix   = self.transition_matrix.to_numpy()
-        nonzero_values      = transition_matrix[transition_matrix > 0]
-        min_value           = np.log(np.min(nonzero_values))
+        transition_matrix       = self.transition_matrix.to_numpy()
+        nonzero_values          = transition_matrix[transition_matrix > 0]
+        min_value               = np.log(np.min(nonzero_values))
         self.transition_matrix  = np.log(self.transition_matrix).clip(min_value - 20)
         
         return
@@ -172,14 +198,10 @@ class Decrypter:
             dict: cypher
         """
         self.text = text
-        #Generate the transition matrix, protecting against multiprocess loops in Windows
-        if __name__ == "__main__":
-            self.generate_transition_matrix_from_text()
-        
-        text_charset = self.get_charset(text)
+        self.generate_transition_matrix_from_text()
         
         #Generate a cypher, then calculate its plausibility
-        cypher              = self.generate_map(text_charset)
+        cypher              = self.cypher_class.generate_cypher(self.allowable_chars)
         cypher.plausibility = self.calculate_plausibility(cypher)
 
         #Keep track of the best cypher found so far as per the plausibility. This will be the cypher that is returned
@@ -187,7 +209,7 @@ class Decrypter:
         
         for i in range(max_iterations):
             #Generate the cypher based on the current cypher and calculate its plausibility
-            new_cypher              = self.generate_map(text_charset, cypher.copy())
+            new_cypher              = cypher.update(cypher)
             new_cypher.plausibility = self.calculate_plausibility(new_cypher)
 
             #If the new cypher is better than the current best cypher, replace it
@@ -205,12 +227,12 @@ class Decrypter:
                 if uniform_value < div:
                     cypher = new_cypher
             
-            #Every 250 iterations, print out the current best cypher
-            if i % 250 == 0:
+            #Every 1000 iterations, print out the current best cypher
+            if i % 1000 == 0:
                 print(f"Iteration {i} - Plausibility: {self.best_cypher.plausibility}")
-                print(self.best_cypher.encode(text))
+                print(self.best_cypher.decode(text))
 
-        return self.best_cypher, self.best_cypher.encode(text)
+        return self.best_cypher, self.best_cypher.decode(text)
     
     def calculate_plausibility(self, cypher_map:'Cypher') -> float:
         """Test the plausibility of the given map
@@ -231,98 +253,3 @@ class Decrypter:
             plausability   += self.transition_matrix.loc[first_char, second_char]
         
         return plausability
-    
-    def generate_map(self, text_charset:set[str], cypher_map:Optional['Cypher'] = None) -> 'Cypher':
-        """Generates or updates the map
-
-        Args:
-            map (Optional[dict], optional): map to update. Defaults to None.
-
-        Returns:
-            dict: map
-        """
-        #If the map is not given, generate a random map assigning each character to a random character without replacement
-        if cypher_map is None:
-            cypher_map = {}
-            # #The initial charset should primarily focus on the text charset, but should also include the allowable charset
-            charset = [char for char in text_charset] + [char for char in self.charset if char not in text_charset]
-            charset_copy = [x for x in charset]
-            for char in charset_copy:
-                random_char = np.random.choice(charset)
-                cypher_map[char] = random_char
-                charset.remove(random_char)
-            cypher_map = Cypher(cypher_map)
-        else:
-            #Otherwise make one swap by picking the first character from the charset and the second character from the cypher map
-            char1           = np.random.choice(list(text_charset))
-            cypher_keys     = [char for char in cypher_map.keys() if char != char1]
-            char2           = np.random.choice(cypher_keys)
-            
-            cypher_map.swap_chars(char1, char2)
-    
-        return cypher_map
-    
-class Cypher:
-    def __init__(self, cypher_map:dict[str, str]):
-        self.cypher_map     = cypher_map
-        self.plausibility   = None
-    
-    def encode(self, text:str) -> str:
-        """Encodes the given text
-
-        Args:
-            text (str): text to encode
-
-        Returns:
-            str: encoded text
-        """
-        encoded_text = ""
-        for char in text:
-            encoded_text += self.cypher_map[char]
-        return encoded_text
-    
-    def __getitem__(self, char:str) -> str:
-        return self.cypher_map[char]
-    
-    def __setitem__(self, char:str, value:str) -> None:
-        self.cypher_map[char] = value
-    
-    def swap_chars(self, char1:str, char2:str) -> None:
-        """Swaps the characters in the cypher map
-
-        Args:
-            char1 (str): first character
-            char2 (str): second character
-        """
-        self.cypher_map[char1], self.cypher_map[char2] = self.cypher_map[char2], self.cypher_map[char1]
-    
-    def __eq__(self, other:'Cypher') -> bool:
-        return self.cypher_map == other.cypher_map
-    
-    def copy(self) -> 'Cypher':
-        """Returns a copy of the cypher
-
-        Returns:
-            Cypher: copy of the cypher
-        """
-        new_cypher = Cypher(self.cypher_map.copy())
-        new_cypher.plausibility = self.plausibility
-        return new_cypher
-    
-    def keys(self) -> list[str]:
-        """Returns the keys of the cypher map
-
-        Returns:
-            list[str]: keys of the cypher map
-        """
-        return list(self.cypher_map.keys())
-
-
-# %%
-if __name__ == "__main__":
-    dc = Decrypter(r"https://www.gutenberg.org/files/2600/2600-0.txt")
-    encoded_text = 'g afpa ham gag afpag1qga7wag1paz9pwg7 mac1pg1phag7wam fnpha7mag1pa27mdag aw900phag1pawn7mxwaqmdaqhh cwa 0a 9ghqxp 9wa0 hg9mpa hag agqepaqh2waqxq7mwgaqawpqa 0agh 9fnpw' #Harder test text
-    # encoded_text = "mg zt gk fgm mg zt miam ol mit jwtlmogf citmitk mol fgzstk of mit dofr mg lwyytk mit lsoful afr akkgcl gy gwmkautgwl ygkmwft gk mg maqt akdl auaoflm a lta gy mkgwzstl afr zb ghhglofu tfr mitd mg rot mg lstth" #Easy test text
-    cypher, decoded_text = dc.find_cypher(encoded_text, max_iterations = 100_000, )
-# %%
-# dc.find_cypher(encoded_text)
