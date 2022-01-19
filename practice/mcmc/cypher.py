@@ -56,7 +56,7 @@ class SubstitutionCypher(Cypher):
 
         return SubstitutionCypher(cypher_map)
     
-    def decode(self, text:str) -> str:
+    def decode(self, ciphertext:str) -> str:
         """Encodes the given text using the cypher map
 
         Args:
@@ -66,11 +66,11 @@ class SubstitutionCypher(Cypher):
             str: encoded text
         """
         encoded_text = ""
-        for char in text:
+        for char in ciphertext:
             encoded_text += self.cypher_map[char]
         return encoded_text
     
-    def encode(self, text:str) -> str:
+    def encode(self, plaintext:str) -> str:
         """Decodes the given text using the cypher map
 
         Args:
@@ -81,7 +81,7 @@ class SubstitutionCypher(Cypher):
         """
         decoded_text = ""
         char_map = self.invert_map(self.cypher_map)
-        for char in text:
+        for char in plaintext:
             decoded_text += char_map[char]
         return decoded_text
     
