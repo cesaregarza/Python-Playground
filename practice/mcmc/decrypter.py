@@ -248,8 +248,8 @@ class Decrypter:
         text = " " + self.text
 
         for i, char in enumerate(text[:-1]):
-            first_char      = cypher_map[char]
-            second_char     = cypher_map[text[i+1]]
+            first_char      = cypher_map.decode(char)
+            second_char     = cypher_map.decode(text[i+1])
             plausability   += self.transition_matrix.loc[first_char, second_char]
         
         return plausability

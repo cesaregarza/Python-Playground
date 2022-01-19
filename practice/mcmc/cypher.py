@@ -140,7 +140,136 @@ class SubstitutionCypher(Cypher):
         return copy
 
 class EnigmaCypher(Cypher):
+
+    def __init__(self,  rotors:list['SubstitutionCypher'], 
+                        reflector:'SubstitutionCypher', 
+                        plugboard: 'SubstitutionCypher',
+                        **kwargs) -> None:
+        self.rotors         = rotors
+        self.reflector      = reflector
+        self.plugboard      = plugboard
+        self.plausibility   = None
     
     @staticmethod
     def generate_cypher(character_list:list[str]) -> 'EnigmaCypher':
-        pass
+        rotors      = [SubstitutionCypher.generate_cypher(character_list) for _ in range(3)]
+        reflector   = SubstitutionCypher.generate_cypher(character_list)
+        plugboard   = SubstitutionCypher.generate_cypher(character_list)
+        return EnigmaCypher(rotors, reflector, plugboard)
+    
+    def encode_char(self, char:str) -> str:
+        """Encodes the given character using the cypher map
+
+        Args:
+            char (str): character to encode
+
+        Returns:
+            str: encoded character
+        """
+        #Plugboard
+        char = self.plugboard.encode(char)
+        #Rotors
+        for rotor in self.rotors:
+            char = rotor.encode(char)
+        #Reflector
+        char = self.reflector.encode(char)
+        #Rotors
+        for rotor in reversed(self.rotors):
+            char = rotor.decode(char)
+        #Plugboard
+        char = self.plugboard.decode(char)
+        return char
+
+    def encode(self, plaintext:str) -> str:
+        """Encodes the given text using the cypher map
+
+        Args:
+            text (str): text to encode
+
+        Returns:
+            str: encoded text
+        """
+        encoded_text = ""
+        for char in plaintext:
+            encoded_text += self.encode_char(char)
+            self.rotate_rotors()
+        return encoded_text
+    
+    def decode_char(self, char:str) -> str:
+        """Decodes the given character using the cypher map
+
+        Args:
+            char (str): character to decode
+
+        Returns:
+            str: decoded character
+        """
+        #Plugboard
+        char = self.plugboard.encode(char)
+        #Rotors
+        for rotor in reversed(self.rotors):
+            char = rotor.decode(char)
+        #Reflector
+        char = self.reflector.decode(char)
+        #Rotors
+        for rotor in self.rotors:
+            char = rotor.encode(char)
+        #Plugboard
+        char = self.plugboard.decode(char)
+        return char
+    
+    def decode(self, ciphertext:str) -> str:
+        """Decodes the given text using the cypher map
+
+        Args:
+            text (str): text to decode
+
+        Returns:
+            str: decoded text
+        """
+        decoded_text = ""
+        for char in ciphertext:
+            decoded_text += self.decode_char(char)
+            self.rotate_rotors()
+        return decoded_text
+    
+    def rotate_rotors(self) -> None:
+        """Rotates the rotors"""
+        for rotor in self.rotors:
+            kv_list             = list(rotor.cypher_map.items())
+            keys                = [k for k, v in kv_list]
+            values              = [v for k, v in kv_list]
+            pop_val             = values.pop(0)
+            values             += [pop_val]
+            rotor.cypher_map    = dict(zip(keys, values))
+        return
+
+    def copy(self) -> 'EnigmaCypher':
+        """Returns a copy of the cypher
+
+        Returns:
+            Cypher: copy of the cypher
+        """
+        new_cypher              = EnigmaCypher([rotor.copy() for rotor in self.rotors], self.reflector.copy(), self.plugboard.copy())
+        new_cypher.plausibility = self.plausibility
+        return new_cypher
+    
+    def update(self, base_cypher: 'EnigmaCypher', *args, **kwargs) -> 'EnigmaCypher':
+        """Updates the cypher with the given base cypher
+
+        Args:
+            base_cypher (Cypher): base cypher
+
+        Returns:
+            Cypher: updated cypher
+        """
+        copy = self.copy()
+        #Update rotors
+        for rotor_index in range(len(copy.rotors)):
+            rotor = copy.rotors[rotor_index]
+            rotor.update(base_cypher.rotors[rotor_index])
+        #Update reflector
+        copy.reflector.update(base_cypher.reflector)
+        #Update plugboard
+        copy.plugboard.update(base_cypher.plugboard)
+        return copy
