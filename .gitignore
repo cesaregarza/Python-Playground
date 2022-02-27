@@ -7,3 +7,4 @@ splatoon
 __pycache__
 math_functions/__pycache__/__init__.cpython-39.pyc
 math_functions/__pycache__/directional.cpython-39.pyc
+*.csv
