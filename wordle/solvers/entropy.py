@@ -38,7 +38,7 @@ class EntropicSolver(BoilerplateWordleSolver):
         self.game_matrix:pd.DataFrame    = None
     
     @staticmethod
-    def _compute_entropy(row:pd.Series) -> float:
+    def __compute_entropy(row:pd.Series) -> float:
         """Private method to compute the entropy of a row. Designed to be used with pandas apply.
 
         Args:
@@ -61,8 +61,8 @@ class EntropicSolver(BoilerplateWordleSolver):
             float: The entropy of the word.
         """
         if self.game_matrix is None:
-            return self.word_matrix.loc[word].pipe(self._compute_entropy)
-        return self.game_matrix.loc[word].pipe(self._compute_entropy)
+            return self.word_matrix.loc[word].pipe(self.__compute_entropy)
+        return self.game_matrix.loc[word].pipe(self.__compute_entropy)
     
     def compute_entropy_all(self) -> pd.Series:
         """Compute the entropy of all words in the word matrix.
@@ -71,8 +71,8 @@ class EntropicSolver(BoilerplateWordleSolver):
             pd.Series: The entropy of all words in the word matrix, sorted by entropy.
         """
         if self.game_matrix is None:
-            return self.word_matrix.apply(self._compute_entropy, axis=1)
-        return self.game_matrix.apply(self._compute_entropy, axis=1)
+            return self.word_matrix.apply(self.__compute_entropy, axis=1)
+        return self.game_matrix.apply(self.__compute_entropy, axis=1)
     
     def compute_best_first_guess(self) -> str:
         """Compute the best first guess.
