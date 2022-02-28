@@ -1,5 +1,5 @@
-from .solvers.solver_abc import WordleSolverABC
-from .wordle import Wordle
+from .solver_abc import WordleSolverABC
+from ..wordle import Wordle
 import requests, re
 import pandas as pd
 import numpy as np

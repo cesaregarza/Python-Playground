@@ -11,17 +11,22 @@ class WordleEvaluator:
         self.game                           = wordle_instance
         self.results:Optional[pd.DataFrame] = None
     
-    def evaluate_solver(self, solver: 'WordleSolverABC') -> pd.DataFrame:
+    def evaluate_solver(self, solver: 'WordleSolverABC', sample:Optional[int] = None) -> pd.DataFrame:
         
         #Obtain all solution words from the wordle instance, then shuffle them
         solution_words = self.game.solution_word_list
         random.shuffle(solution_words)
 
+        #If a sample size is specified, then only take that many words from the solution list
+        if sample is not None:
+            solution_words = solution_words[:sample]
+
         #Initialize the recording list
         scores = []
+        tqdm_solution = tqdm(solution_words)
 
         #Iterate through each solution word
-        for solution_word in tqdm(solution_words):
+        for solution_word in tqdm_solution:
             #Start the game
             self.game.start_game_select_word(solution_word)
 
@@ -45,7 +50,9 @@ class WordleEvaluator:
             
             #Add the score to the list
             scores += [{"solution_word": solution_word, "num_guesses": num_guesses}]
+            mean_score = sum(score["num_guesses"] for score in scores) / len(scores)
+            tqdm_solution.set_postfix({"mean_score": mean_score})
         
         #Convert the list to a dataframe
-        self.results = pd.DataFrame(scores)
+        self.results = pd.DataFrame(scores).set_index("solution_word")
         return self.results

@@ -51,14 +51,12 @@ class BoilerplateWordleSolver(WordleSolverABC):
         #and then combining them into a single matrix. A word against itself will always have the same score, so will be
         #ignored from this generation.
         
-        #Solution words are a form of the handshake problem, and can be treated differently. The preindex will allow for
-        #fast filling of the already computed scores.
-        solution_word_preindex = [
+        #Solutions are not commutative, so all solutions must be generated.
+        word_list = [
             (solution_word_list[i], solution_word_list[j])
             for i in range(len(solution_word_list))
-            for j in range(i + 1, len(solution_word_list))
+            for j in range(len(solution_word_list))
         ]
-        word_list = [*solution_word_preindex]
 
         #Allowed words are treated differently, they must be paired with all other words in the solution_word_list. This
         #is because while allowed vs solution is possible, solution vs allowed is not.
@@ -82,21 +80,6 @@ class BoilerplateWordleSolver(WordleSolverABC):
         submat_func = BoilerplateWordleSolver.compute_sub_matrix
         with Pool(cores) as pool:
             word_series = pd.concat(pool.map(submat_func, rows))
-        
-        #Use the preindex to identify the already-computed scores of any solution words vs any other solution words, then
-        #flip the indices to, in essence, use the commutative property of the wordle evaluation.
-        missing_series          = word_series.loc[solution_word_preindex]
-        missing_series.index    = missing_series.index.rename(("solution", "guess"))
-        word_series             = word_series.append(missing_series.swaplevel())
-
-        #Create a series for solution words vs themselves, which will always have a perfect score, then append it to the
-        #word_series.
-        solution_index  = pd.MultiIndex.from_tuples([
-            (solution_word, solution_word)
-            for solution_word in solution_word_list
-        ])
-        solution_series = pd.Series("2" * word_length, index = solution_index, dtype=object)
-        word_series     = word_series.append(solution_series)
 
         #Unstack the series into a dataframe, and sort both rows and columns
         word_matrix = word_series.unstack()
@@ -139,7 +122,7 @@ class BoilerplateWordleSolver(WordleSolverABC):
         Returns:
             str: The result of the evaluation. 2 for a full match, 1 for a letter match, and 0 for no match.
         """
-        result = Wordle.evaluate_word(guess, solution)
+        result = Wordle.evaluate_word(solution, guess)
         result = [str(x) for x in result]
         return "".join(result)
     
