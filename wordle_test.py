@@ -18,11 +18,11 @@ wordle = Wordle(solution_word_list= solution_words, allowed_word_list= allowed_w
 if __name__ == "__main__":
     evaluator = WordleEvaluator(wordle)
     # entropic_solver = EntropicSolver(allowed_words, solution_words, r"F:\Dev\Python-Playground\wordle\precompute\word_matrix.csv")
-    entropic_solver = OneStepEntropicSolver(allowed_words, solution_words, r"F:\Dev\Python-Playground\wordle\precompute\word_matrix.csv")
-    # entropic_solver = OneStepEntropicSolver(allowed_words, solution_words, precomputed_word_matrix_path=r"F:\Dev\Python-Playground\wordle\precompute\word_matrix_full.csv")
+    # entropic_solver = OneStepEntropicSolver(allowed_words, solution_words, r"F:\Dev\Python-Playground\wordle\precompute\word_matrix.csv")
+    entropic_solver = OneStepEntropicSolver(all_words, precomputed_word_matrix_path=r"F:\Dev\Python-Playground\wordle\precompute\word_matrix_full.csv")
     # entropic_solver = OneStepEntropicSolver(all_words)
-    # evaluator.evaluate_solver(entropic_solver)
+    evaluator.evaluate_solver(entropic_solver)
 # %%
-%load_ext line_profiler
+# %load_ext line_profiler
 %lprun -f EntropicSolver._compute_entropy evaluator.evaluate_solver(entropic_solver, sample=50)
 # %%

@@ -1,11 +1,11 @@
 from typing import Optional
 
-from sqlalchemy import column
 from .boilerplate import BoilerplateWordleSolver
 from ..wordle import Wordle
 import pandas as pd
 import numpy as np
 from numpy import log2 as log
+import numba as nb
 
 class EntropicSolver(BoilerplateWordleSolver):
 
@@ -24,7 +24,8 @@ class EntropicSolver(BoilerplateWordleSolver):
         #If a precomputed word matrix is provided, use it. Otherwise, compute it.
         if precomputed_word_matrix_path:
             self.word_matrix                = pd.read_csv(precomputed_word_matrix_path, dtype=str, index_col=0)
-            self.word_matrix.columns.name   = "solution"
+            self.word_matrix.columns.name   = "solution_word"
+            self.word_matrix.index.name     = "guess_word"
             #If the word "guess" is in the word matrix as a column, it will have been changed to "guess.1", so we need 
             #to fix it.
             if "guess.1" in self.word_matrix.columns:
@@ -33,8 +34,7 @@ class EntropicSolver(BoilerplateWordleSolver):
         else:
             self.word_matrix = self.compute_word_matrix(allowed_word_list, solution_word_list)
 
-    def initialize(self, wordle_instance: 'Wordle') -> None:
-        self.word_list      = [*self.base_allowed]
+    def initialize(self, wordle_instance: 'Wordle' = None) -> None:
         self.game_matrix:pd.DataFrame    = None
     
     @staticmethod
@@ -47,8 +47,22 @@ class EntropicSolver(BoilerplateWordleSolver):
         Returns:
             float: The entropy of the row.
         """
-        probability   = row.value_counts(normalize=True)
-        entropy       = -np.sum(probability * log(probability))
+        probability   = row.value_counts(normalize=True).values
+        entropy       = EntropicSolver.__compute_entropy_probability(probability)
+        return entropy
+    
+    @staticmethod
+    @nb.jit(nb.float64(nb.float64[:]), nopython=True)
+    def __compute_entropy_probability(probability:np.ndarray) -> float:
+        """Private method to compute the entropy of a row. Designed to be used with numba.
+
+        Args:
+            probability (np.ndarray): A row of the word matrix.
+
+        Returns:
+            float: The entropy of the row.
+        """
+        entropy       = -np.sum(probability * np.log2(probability))
         return entropy
 
     def compute_entropy(self, word:str) -> float:
@@ -74,7 +88,7 @@ class EntropicSolver(BoilerplateWordleSolver):
             return self.word_matrix.apply(self.__compute_entropy, axis=1)
         return self.game_matrix.apply(self.__compute_entropy, axis=1)
     
-    def compute_best_first_guess(self) -> str:
+    def compute_best_guess(self) -> str:
         """Compute the best first guess.
 
         Returns:
@@ -95,7 +109,7 @@ class OneStepEntropicSolver(EntropicSolver):
                        precomputed_word_matrix_path:Optional[str] = None) -> None:
         super().__init__(allowed_word_list, solution_word_list, precomputed_word_matrix_path)
         self.game_matrix        = self.word_matrix.copy()
-        self.best_first_guess   = self.compute_best_first_guess()
+        self.best_first_guess   = self.compute_best_guess()
 
     def initialize(self, wordle_instance: 'Wordle') -> None:
         self.last_guess = None
@@ -105,8 +119,7 @@ class OneStepEntropicSolver(EntropicSolver):
         if self.last_guess is None:
             self.last_guess = self.best_first_guess
             return self.last_guess
-        entropy_list    = self.compute_entropy_all()
-        self.last_guess = entropy_list.idxmax()
+        self.last_guess = self.compute_best_guess()
         return self.last_guess
     
     def pass_results(self, results:list[str]) -> None:

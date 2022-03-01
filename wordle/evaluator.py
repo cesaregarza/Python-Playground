@@ -4,6 +4,9 @@ from .solvers.solver_abc    import WordleSolverABC
 import pandas as pd
 import random
 from tqdm import tqdm
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
 
 class WordleEvaluator:
 
@@ -56,3 +59,14 @@ class WordleEvaluator:
         #Convert the list to a dataframe
         self.results = pd.DataFrame(scores).set_index("solution_word")
         return self.results
+    
+    def hist(self):
+        max_num_guesses = self.results["num_guesses"].max()
+        bins = np.arange(0, max_num_guesses + 1)
+        f, ax = plt.subplots(figsize=(10, 5))
+
+        sns.histplot(self.results, bins=bins, ax=ax, kde=True)
+        plt.axvline(self.results["num_guesses"].mean(), color="red", linestyle="--", label="Mean")
+        plt.axvline(self.results["num_guesses"].median(), color="green", linestyle="--", label="Median")
+        plt.legend()
+        plt.show()

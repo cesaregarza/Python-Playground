@@ -34,8 +34,6 @@ class BoilerplateWordleSolver(WordleSolverABC):
         """
         cores = os.cpu_count() if cores is None else cores
 
-        word_length = len(allowed_word_list[0])
-
         #Combine the allowed_word_list and the solution_word_list
         if solution_word_list is None:
             solution_word_list = allowed_word_list
@@ -105,7 +103,7 @@ class BoilerplateWordleSolver(WordleSolverABC):
         ]
         #Generate the reverse list of results for each given word pair and create an index containing both forward and
         #reverse pairs
-        index = pd.MultiIndex.from_tuples(word_list, names=['guess', 'solution'])
+        index = pd.MultiIndex.from_tuples(word_list, names=['guess_word', 'solution_word'])
 
         #Generate the series using the data twice, once for the forward and once for the reverse.
         return pd.Series(data, index=index)
