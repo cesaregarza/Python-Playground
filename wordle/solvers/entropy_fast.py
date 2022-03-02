@@ -1,5 +1,7 @@
 from typing import Optional
 
+from sqlalchemy import column
+
 from .boilerplate import BoilerplateWordleSolver
 from ..wordle import Wordle
 import pandas as pd
@@ -39,7 +41,7 @@ class FastEntropicSolver(BoilerplateWordleSolver):
     
     @staticmethod
     @nb.jit(nb.float64(nb.int64[:]), nopython=True)
-    def __compute_entropy(row: np.ndarray) -> np.ndarray:
+    def _compute_entropy(row: np.ndarray) -> np.ndarray:
         """Private method to compute the entropy of the ternary matrix.
 
         Args:
@@ -56,27 +58,15 @@ class FastEntropicSolver(BoilerplateWordleSolver):
         log_row_probabilities = np.log2(row_probabilities)
         #Compute the entropy of each row
         return -np.sum(row_probabilities * log_row_probabilities)
-
-    def compute_entropy(self, word:str) -> float:
-        """Compute the entropy of a single word.
-
-        Args:
-            word (str): The word to compute the entropy of.
-
-        Returns:
-            float: The entropy of the word.
-        """
-        matrix = self.word_matrix if self.game_matrix is None else self.game_matrix
-        return self.__compute_entropy(matrix.loc[word].values)
     
     def compute_entropy_all(self) -> np.ndarray:
         """Compute the entropy of all words in the word matrix.
 
         Returns:
-            pd.Series: The entropy of all words in the word matrix, sorted by entropy.
+            np.ndarray: The entropy of all words in the word matrix, sorted by entropy.
         """
         matrix = self.word_matrix if self.game_matrix is None else self.game_matrix
-        return np.apply_along_axis(self.__compute_entropy, 1, matrix.values)
+        return np.apply_along_axis(self._compute_entropy, 1, matrix.values)
     
     def compute_best_guess(self) -> str:
         """Compute the best guess
@@ -110,8 +100,8 @@ class FastOneStepEntropicSolver(FastEntropicSolver):
     def pass_results(self, results:list[str]) -> None:
         
         results_value       = self.ternary("".join([str(x) for x in results]))
-        word_matrix         = self.game_matrix if self.game_matrix is not None else self.word_matrix
-        last_guess_series   = word_matrix.loc[self.last_guess]
+        matrix              = self.game_matrix if self.game_matrix is not None else self.word_matrix
+        last_guess_series   = matrix.loc[self.last_guess]
         columns_possible    = last_guess_series.loc[last_guess_series == results_value].index
-        self.game_matrix    = word_matrix.loc[columns_possible, columns_possible]
+        self.game_matrix    = matrix.loc[columns_possible, columns_possible]
         return

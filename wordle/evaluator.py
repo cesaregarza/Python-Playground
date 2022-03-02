@@ -62,11 +62,11 @@ class WordleEvaluator:
     
     def hist(self):
         max_num_guesses = self.results["num_guesses"].max()
-        bins = np.arange(0, max_num_guesses + 1)
+        bins = np.arange(1, max_num_guesses + 2) - 0.5
         f, ax = plt.subplots(figsize=(10, 5))
 
-        sns.histplot(self.results, bins=bins, ax=ax, kde=True)
+        sns.histplot(self.results, bins=bins, ax=ax)
         plt.axvline(self.results["num_guesses"].mean(), color="red", linestyle="--", label="Mean")
-        plt.axvline(self.results["num_guesses"].median(), color="green", linestyle="--", label="Median")
+        plt.axvline(self.results["num_guesses"].median(), color="green", linestyle="-", label="Median")
         plt.legend()
         plt.show()

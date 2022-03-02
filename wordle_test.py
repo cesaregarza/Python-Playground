@@ -2,7 +2,7 @@
 from wordle import Wordle, WordleEvaluator
 # from wordle.naive_solver import NaiveSolver
 from wordle.solvers.entropy import OneStepEntropicSolver, EntropicSolver
-from wordle.solvers.entropy_fast import FastEntropicSolver, FastOneStepEntropicSolver
+from wordle.solvers.entropy_faster import FastEntropicSolver, FastOneStepEntropicSolver
 import requests
 
 solution_url = r"https://gist.githubusercontent.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/5d752e5f0702da315298a6bb5a771586d6ff445c/wordle-answers-alphabetical.txt"
@@ -23,7 +23,8 @@ if __name__ == "__main__":
     entropic_solver = FastOneStepEntropicSolver(all_words, precomputed_word_matrix_path=r"D:\dev\csvs\word_matrix_full_tern.csv")
     # entropic_solver = OneStepEntropicSolver(all_words)
     evaluator.evaluate_solver(entropic_solver)
+
 # %%
-%load_ext line_profiler
-%lprun -f FastEntropicSolver.compute_entropy_all evaluator.evaluate_solver(entropic_solver, sample=50)
+# %load_ext line_profiler
+# %lprun -f evaluator.evaluate_solver evaluator.evaluate_solver(entropic_solver, sample=50)
 # %%
