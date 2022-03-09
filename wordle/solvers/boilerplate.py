@@ -2,7 +2,8 @@ from .solver_abc import WordleSolverABC
 from ..wordle import Wordle
 
 from typing import Optional
-import os, pathlib, hashlib
+import os, pathlib
+from functools import partial
 from multiprocessing import Pool
 import pandas as pd
 import numpy as np
@@ -13,6 +14,7 @@ class BoilerplateWordleSolver(WordleSolverABC):
     @staticmethod
     def compute_word_matrix(allowed_word_list:list[str],
                             solution_word_list:Optional[list[str]] = None,
+                            ternary:bool = False,
                             cores:Optional[int] = None) -> pd.DataFrame:
         """Compute the word matrix for the given word list. This returns a pandas DataFrame where the columns are the
         solution words, the rows are the guess words, and the values are the results of the evaluation of the guess word
@@ -75,7 +77,7 @@ class BoilerplateWordleSolver(WordleSolverABC):
         ]
 
         #Use multiprocessing to compute each given chunk of rows to maximize parallelization
-        submat_func = BoilerplateWordleSolver.compute_sub_matrix
+        submat_func = partial(BoilerplateWordleSolver.compute_sub_matrix, ternary=ternary)
         with Pool(cores) as pool:
             word_series = pd.concat(pool.map(submat_func, rows))
 
@@ -84,7 +86,7 @@ class BoilerplateWordleSolver(WordleSolverABC):
         return word_matrix.sort_index().sort_index(axis=1)
     
     @staticmethod
-    def compute_sub_matrix(word_list:list[tuple[str, str]]) -> pd.Series:
+    def compute_sub_matrix(word_list:list[tuple[str, str]], ternary:bool = False) -> pd.Series:
         """Compute the word matrix for the given word list. This returns a pandas Series with the first index being the
         guess word, and the second index being the solution word. The values are the results of the evaluation of the guess.
         This format allows for unstacking the series into a dataframe. This is a helper function for compute_word_matrix.
@@ -98,7 +100,7 @@ class BoilerplateWordleSolver(WordleSolverABC):
         
         #Generate the list of results for each given word pair
         data = [
-            BoilerplateWordleSolver.evaluate_word_str(guess, solution)
+            BoilerplateWordleSolver.evaluate_word_str(guess, solution, ternary)
             for guess, solution in word_list
         ]
         #Generate the reverse list of results for each given word pair and create an index containing both forward and
@@ -109,7 +111,7 @@ class BoilerplateWordleSolver(WordleSolverABC):
         return pd.Series(data, index=index)
     
     @staticmethod
-    def evaluate_word_str(guess:str, solution:str) -> str:
+    def evaluate_word_str(guess:str, solution:str, ternary:bool = False) -> str:
         """Evaluate the given guess against the given solution, and return the result as a string. This is a wrapper for
         the wordle evaluation function.
 
@@ -122,7 +124,11 @@ class BoilerplateWordleSolver(WordleSolverABC):
         """
         result = Wordle.evaluate_word(solution, guess)
         result = [str(x) for x in result]
-        return "".join(result)
+        result = "".join(result)
+        if ternary:
+            return int(result, 3)
+        else:
+            return result
     
     @staticmethod
     def check_for_precomputed(file_path:Optional[str] = None) -> bool:

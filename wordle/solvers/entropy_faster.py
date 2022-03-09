@@ -7,7 +7,7 @@ import numpy as np
 from numpy import log2 as log
 import numba as nb
 from functools import partial
-from .compiled_functions import compute_entropy, compute_entropy_all, compute_possible_solutions
+from .compiled_functions import compute_entropy, compute_entropy_all, compute_possible_solutions, compute_entropy_second_step
 
 class FastEntropicSolver(BoilerplateWordleSolver):
     """Entropy-based Wordle Solver. This version of the entropic solver trades readability for speed."""
@@ -18,7 +18,9 @@ class FastEntropicSolver(BoilerplateWordleSolver):
         
         #If a solution word list is provided, separate it from the allowed word list.
         if solution_word_list is None:
-            solution_word_list = [*allowed_word_list]
+            self.solution_word_list = [*allowed_word_list]
+        else:
+            self.solution_word_list = [*solution_word_list]
         
         if precomputed_word_matrix_path:
             self.word_matrix                = pd.read_csv(precomputed_word_matrix_path, index_col=0)
@@ -29,9 +31,9 @@ class FastEntropicSolver(BoilerplateWordleSolver):
             if "guess.1" in self.word_matrix.columns:
                 self.word_matrix = self.word_matrix.rename(columns={"guess.1":"guess"})
             
-            self.word_matrix = self.word_matrix.sort_index(axis=0).sort_index(axis=1)
+            self.word_matrix = self.word_matrix.sort_index(axis=0).sort_index(axis=1)                
         else:
-            self.word_matrix = self.compute_word_matrix(allowed_word_list, solution_word_list)
+            self.word_matrix = self.compute_word_matrix(allowed_word_list, solution_word_list, ternary=True)
         
         #Replace the word matrix string values with their ternary equivalents
         self.ternary        = partial(int, base=3)
@@ -41,9 +43,16 @@ class FastEntropicSolver(BoilerplateWordleSolver):
         self.col_index      = {i: word for i, word in enumerate(self.word_matrix.columns)}
         self.col_reverse    = {word: i for i, word in self.col_index.items()}
         self.val_matrix     = self.word_matrix.values
+        self.subcolumns     = len(self.solution_word_list) == self.val_matrix.shape[1]
     
     def initialize(self, wordle_instance: 'Wordle' = None) -> None:
-        self.possible_solutions:list[int] = np.ones(self.word_matrix.shape[1], dtype=np.int64)
+        if self.subcolumns:
+            self.possible_solutions = np.zeros(self.word_matrix.shape[1], dtype=np.int64)
+            for word in self.solution_word_list:
+                idx = self.row_reverse[word]
+                self.possible_solutions[idx] = 1
+        else:
+            self.possible_solutions = np.ones(self.word_matrix.shape[1], dtype=np.int64)
 
     def compute_entropy(self, word:str) -> float:
         """Compute the entropy of a single word.
@@ -100,6 +109,12 @@ class FastEntropicSolver(BoilerplateWordleSolver):
         return self.row_index[self.compute_best_guess()]
 
 class FastOneStepEntropicSolver(FastEntropicSolver):
+    """This solver maximizes the entropy of the next guess, but only one step at a time.
+
+    At a high level, this solver works by carrying around a possible_solutions numpy array that will be either a 0 or a 1
+    for each column in the word matrix. This array is updated as the solver makes guesses, and will skip over columns
+    that are no longer possible solutions.
+    """
     def __init__(self, allowed_word_list:list[str],
                        solution_word_list:Optional[list[str]] = None,
                        precomputed_word_matrix_path:Optional[str] = None) -> None:
@@ -110,6 +125,53 @@ class FastOneStepEntropicSolver(FastEntropicSolver):
     def initialize(self, wordle_instance: Optional['Wordle'] = None) -> None:
         self.last_guess = None
         return super().initialize(wordle_instance)
+
+    def generate_guess(self) -> str:
+        """Generate the best guess.
+
+        Returns:
+            str: The best guess via maximum entropy.
+        """
+        if self.last_guess is None:
+            self.last_guess = self.best_first_guess
+        elif self.possible_solutions.sum() > 1:
+            self.last_guess = self.compute_best_guess()
+        else:
+            self.last_guess = np.argmax(self.possible_solutions)
+        return self.row_index_to_word(self.last_guess)
+    
+    def pass_results(self, results:list[str]) -> None:
+        """Feed the results of the last guess back into the solver.
+
+        Args:
+            results (list[str]): The results of the last guess.
+        """
+        
+        results_value           = self.ternary("".join([str(x) for x in results]))
+        row                     = self.val_matrix[self.last_guess]
+        self.possible_solutions = compute_possible_solutions(row, results_value, self.possible_solutions)
+        return
+    
+    feed_results = pass_results
+
+class FastTwoStepEntropicSolver(FastEntropicSolver):
+
+    def __init__(self, allowed_word_list:list[str],
+                       solution_word_list:Optional[list[str]] = None,
+                       precomputed_word_matrix_path:Optional[str] = None,
+                       max_words_entropy:int = 100) -> None:
+        super().__init__(allowed_word_list, solution_word_list, precomputed_word_matrix_path)
+        self.max_words_entropy  = max_words_entropy
+        self.possible_solutions = np.ones(self.word_matrix.shape[1], dtype=np.int64)
+        self.best_first_guess   = self.compute_best_guess()
+
+    def initialize(self, wordle_instance: Optional['Wordle'] = None) -> None:
+        self.last_guess = None
+        return super().initialize(wordle_instance)
+    
+    def compute_entropy_all(self) -> np.ndarray:
+        entropy = super().compute_entropy_all()
+        return compute_entropy_second_step(self.val_matrix, self.possible_solutions, self.max_words_entropy, entropy)
 
     def generate_guess(self) -> str:
         """Generate the best guess.
