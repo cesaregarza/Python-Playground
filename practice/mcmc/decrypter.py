@@ -2,6 +2,7 @@
 from typing import Optional, Union
 import pandas as pd
 import numpy as np
+import numba as nb
 import requests, re, os
 
 from concurrent.futures import ProcessPoolExecutor
@@ -253,3 +254,20 @@ class Decrypter:
             plausability   += self.transition_matrix.loc[first_char, second_char]
         
         return plausability
+
+class DecrypterAnnealing(Decrypter):
+
+    def find_cypher(self, text:str, initial_temperature:int = 50, iterations_per_temperature:int = 1_000) -> dict:
+        self.text = text
+        self.generate_transition_matrix_from_text()
+
+        #Generate a cypher, then calculate its plausibility
+        cypher              = self.cypher_class.generate_cypher(self.allowable_chars)
+        cypher.plausibility = self.calculate_plausibility(cypher)
+
+        #Keep track of the best cypher found so far as per the plausibility. This will be the cypher that is returned
+        self.best_cypher = cypher
+
+        temperature = initial_temperature
+        while temperature > 0:
+            pass

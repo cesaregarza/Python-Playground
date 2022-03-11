@@ -124,6 +124,7 @@ class DirectionalStatistics:
         """
         x, y = self.mean_cartesian
         r = np.sqrt(x**2 + y**2)
+        r = min(1, r)
         return 1 - r
 
     def __validate_data(self, data:npt.ArrayLike) -> npt.ArrayLike:
