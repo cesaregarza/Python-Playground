@@ -66,7 +66,8 @@ def power_positions(df:pd.DataFrame, map_consolidation_factor:int, min_points:in
     #Compute the norm of the wedge product of the attacker and victim vectors
     axy                     = power_stats[["a_x", "a_y"]].values
     vxy                     = power_stats[["v_x", "v_y"]].values
-    power_stats["av_wedge"] = np.abs(np.cross(axy, vxy))
+    power_stats["av_wedge"] = np.cross(axy, vxy)
+    power_stats["av_dot"]   = np.einsum("ij,ij->i", axy, vxy)
     return power_stats
 
 power_positions(df, 5)
